@@ -16,6 +16,7 @@ jobs:
           my_cluster
         type: string
       cfn-role-arn:
+        type: string
         description: arn:aws:iam::213561109591:role/CircleCI_Access
     steps:
       - checkout
