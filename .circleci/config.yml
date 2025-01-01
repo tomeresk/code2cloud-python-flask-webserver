@@ -23,11 +23,6 @@ workflows:
       - create-deployment:
           docker:
             - image: cimg/python:3.10
-          parameters:
-            cluster-name:
-              description: |
-                my_cluster
-              type: string
           steps:
             - checkout
             - aws-eks/update-kubeconfig-with-authenticator:
