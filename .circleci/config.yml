@@ -1,4 +1,6 @@
 version: 2.1
+parameters:
+  cluster-name: my_cluster
 
 orbs:
   aws-ecr: circleci/aws-ecr@9.3.6 # Use the AWS ECR orb in your configuration
