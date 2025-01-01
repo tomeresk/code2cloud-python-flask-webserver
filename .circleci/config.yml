@@ -1,8 +1,5 @@
 version: 2.1
-parameters:
-  cluster-name: 
-    type: string
-    default: "my_cluster"
+
 orbs:
   aws-ecr: circleci/aws-ecr@9.3.6 # Use the AWS ECR orb in your configuration
   aws-cli: circleci/aws-cli@5.1.1 # Use the AWS CLI orb in your configuration
@@ -34,7 +31,7 @@ workflows:
           steps:
             - checkout
             - aws-eks/update-kubeconfig-with-authenticator:
-              cluster-name: << parameters.cluster-name >>
+              cluster-name: my_cluster
               install-kubectl: true
             - kubernetes/create-or-update-resource:
                 get-rollout-status: true
