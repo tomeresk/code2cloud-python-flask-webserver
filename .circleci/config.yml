@@ -14,5 +14,5 @@ workflows:
           dockerfile: Dockerfile
           path: .
           profile_name: default
-          repo: my_repo
+          repo: my_registry
           tag: latest # default - latest
