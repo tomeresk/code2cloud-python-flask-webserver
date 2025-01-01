@@ -15,4 +15,4 @@ workflows:
           path: .
           profile_name: default
           repo: my_repo
-          tag: <my-ECR-repo-tag> # default - latest
+          tag: latest # default - latest
