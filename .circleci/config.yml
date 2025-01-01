@@ -10,7 +10,7 @@ workflows:
       - aws-ecr/build_and_push_image: # Use the pre-defined `build-and-push-image` job
           auth:
             - aws-cli/setup:
-                role_arn: arn:aws:iam::213561109591:role/aws-reserved/sso.amazonaws.com/us-west-2/AWSReservedSSO_AWSAdministratorAccess_384da7cedc67408e
+                role_arn: arn:aws:iam::213561109591:role/aws-service-role/replication.ecr.amazonaws.com/AWSServiceRoleForECRReplication
           dockerfile: Dockerfile
           path: .
           profile_name: default
