@@ -39,6 +39,6 @@ workflows:
           dockerfile: Dockerfile
           path: .
           profile_name: default
-          repo: my_registry
+          repo: code2cloud
           tag: latest # default - latest
       - deploy_to_production
