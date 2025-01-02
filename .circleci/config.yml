@@ -29,7 +29,7 @@ jobs:
               docker tag code2cloud:$LATEST_SHA 213561109591.dkr.ecr.us-east-1.amazonaws.com/code2cloud:latest
               docker push 213561109591.dkr.ecr.us-east-1.amazonaws.com/code2cloud:latest
               ./kubectl apply -f manifests/deployment.yaml
-              ./kubectl set image deployment/code2cloud-python-flask-webserver-deployment code2cloud-python-flask-webserver-deployment=213561109591.dkr.ecr.us-east-1.amazonaws.com/code2cloud:$LATEST_SHA -n default 
+              ./kubectl set image deployment/code2cloud-python-flask-webserver-deployment code2cloud-python-flask-webserver-deployment=213561109591.dkr.ecr.us-east-1.amazonaws.com/code2cloud:$LATEST_SHA -n code2cloud 
 workflows:
   build_and_push_image:
     jobs:
