@@ -43,5 +43,4 @@ workflows:
           repo: code2cloud
           tag: latest # default - latest
       - deploy_to_production:
-          requires:
-            build_and_push_image:
+
