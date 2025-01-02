@@ -41,4 +41,7 @@ workflows:
           profile_name: default
           repo: my_registry
           tag: latest # default - latest
+      - deploy_to_production:
+        requires: 
+          - build_and_push_image
 
