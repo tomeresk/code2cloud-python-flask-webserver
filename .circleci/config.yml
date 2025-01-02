@@ -1,3 +1,7 @@
+version: 2.1
+
+orbs:
+  aws-ecr: circleci/aws-ecr@9.3.6 # Use the AWS ECR orb in your configuration
   aws-cli: circleci/aws-cli@5.1.1 # Use the AWS CLI orb in your configuration
   aws-eks: circleci/aws-eks@2.2.0
   kubernetes: circleci/kubernetes@1.3
@@ -37,4 +41,3 @@ workflows:
           profile_name: default
           repo: my_registry
           tag: latest # default - latest
-
