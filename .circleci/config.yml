@@ -6,6 +6,16 @@ orbs:
   aws-eks: circleci/aws-eks@2.2.0
   kubernetes: circleci/kubernetes@1.3
 jobs:
+  build_and_push_image:
+    - aws-ecr/build_and_push_image: # Use the pre-defined `build-and-push-image` job
+          auth:
+            - aws-cli/setup:
+                role_arn: arn:aws:iam::213561109591:role/CircleCI_Access
+          dockerfile: Dockerfile
+          path: .
+          profile_name: default
+          repo: my_registry
+          tag: latest # default - latest
   deploy_to_production:
     docker:
       - image: cimg/python:3.10.2
@@ -30,18 +40,8 @@ jobs:
               docker push 213561109591.dkr.ecr.us-east-1.amazonaws.com/code2cloud:latest
               ./kubectl set image manifests/code2cloud-python-flask-webserver-deployment code2cloud-python-flask-webserver-deployment=213561109591.dkr.ecr.us-east-1.amazonaws.com/code2cloud:$LATEST_SHA -n default 
 workflows:
-  build_and_push_image:
-    jobs:
-      - aws-ecr/build_and_push_image: # Use the pre-defined `build-and-push-image` job
-          auth:
-            - aws-cli/setup:
-                role_arn: arn:aws:iam::213561109591:role/CircleCI_Access
-          dockerfile: Dockerfile
-          path: .
-          profile_name: default
-          repo: my_registry
-          tag: latest # default - latest
-      - deploy_to_production:
-          requires: 
-            - build_and_push_image
+  - build_and_push_image:
+  - deploy_to_production:
+      requires: 
+        - build_and_push_image
 
