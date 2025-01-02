@@ -41,7 +41,7 @@ jobs:
               docker push 213561109591.dkr.ecr.us-east-1.amazonaws.com/code2cloud:latest
               ./kubectl set image manifests/code2cloud-python-flask-webserver-deployment code2cloud-python-flask-webserver-deployment=213561109591.dkr.ecr.us-east-1.amazonaws.com/code2cloud:$LATEST_SHA -n default 
 workflows:
-  - build_and_push_image:
+  - build_and_push_image
   - deploy_to_production:
       requires: 
         - build_and_push_image
