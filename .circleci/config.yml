@@ -42,5 +42,5 @@ workflows:
           profile_name: default
           repo: code2cloud
           tag: latest # default - latest
-      - deploy_to_production:
+      - deploy_to_production
 
