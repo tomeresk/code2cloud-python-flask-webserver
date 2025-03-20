@@ -38,4 +38,10 @@ jobs:
           docker push 213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:$LATEST_SHA
           docker tag express-eks:$LATEST_SHA 213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:latest
           docker push 213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:latest
-          kubectl set image deployment/myapp myapp=213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:$LATEST_SHA -n default
+          DEPLOY_CMD="./kubectl set image deployment/myapp myapp=213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:$LATEST_SHA -n default"
+          if [[ ${{ steps.check_deployment.outputs.deployment_exists }} == "true" ]]; then
+            $DEPLOY_CMD
+          else
+            echo "Creating new deployment"
+            kubectl create deployment myapp --image=213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:$LATEST_SHA -n default
+          fi
