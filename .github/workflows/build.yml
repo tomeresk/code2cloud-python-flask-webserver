@@ -1,66 +1,41 @@
-name: Build Container and Push on GHCR
+name: CI/CD
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:  # Allows manual triggering of the workflow
-
-env:
-  # Use ghcr.io
-  REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
-
+on: [push]
 
 jobs:
-  build:
-
+  build-and-test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16.x'
+      - name: Install Dependencies
+        run: npm install
+      - name: Run Tests
+        run: npm test
 
-      - name: Extract version from version.py
+  deploy_to_production:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure AWS Credentials
         run: |
-          version=$(grep 'version = ' version.py | sed -E "s/version = \"([^\"]+)\"/\1/")
-          echo "APPLICATION_VERSION=$version" >> $GITHUB_ENV
-        
-      - name: Log in to the Container registry
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Extract metadata (tags, labels) for Docker
-      # https://github.com/docker/metadata-action      
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=raw,value=${{ env.APPLICATION_VERSION }}
-
-      # Build and push Docker image with Buildx (don't push on PR)
-      # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
-        id: build-and-push
-        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Output image digest
-        id: output-digest
+          echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > aws_access_key_id
+          echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > aws_secret_access_key
+      - name: Deploy to EKS
         run: |
-          echo "digest: ${{ steps.build-and-push.outputs.digest }} size:"
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+          pip install awscli --upgrade
+          aws --version
+          aws eks update-kubeconfig --name my-cluster
+          LATEST_SHA=$(git rev-parse HEAD)
+          docker build -t express-eks:$LATEST_SHA .
+          docker tag express-eks:$LATEST_SHA 213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:$LATEST_SHA
+          docker push 213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:$LATEST_SHA
+          docker tag express-eks:$LATEST_SHA 213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:latest
+          docker push 213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:latest
+          kubectl set image deployment/myapp myapp=213561109591.dkr.ecr.us-east-1.amazonaws.com/express-eks:$LATEST_SHA -n default
