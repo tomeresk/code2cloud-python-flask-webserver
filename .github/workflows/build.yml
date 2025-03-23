@@ -28,6 +28,9 @@ jobs:
         run: |
           echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > aws_access_key_id
           echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > aws_secret_access_key
+      - name: Set AWS Region
+        run: |
+          echo "AWS_REGION=us-east-1" >> $GITHUB_ENV  # Replace with your AWS region
       - name: Deploy to EKS
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -35,7 +38,7 @@ jobs:
           sudo mv ./kubectl /usr/local/bin/kubectl
           pip install awscli --upgrade
           aws --version
-          aws eks update-kubeconfig --name my-cluster
+          aws eks update-kubeconfig --name my-cluster --region ${{ env.AWS_REGION }}
           LATEST_SHA=$(git rev-parse HEAD)
           docker build -t express-eks:$LATEST_SHA .
           docker tag express-eks:$LATEST_SHA ${{ secrets.IMAGE_REGISTRY }}/express-eks:$LATEST_SHA
