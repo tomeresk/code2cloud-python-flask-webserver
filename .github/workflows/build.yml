@@ -45,5 +45,12 @@ jobs:
           docker push ${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA
           docker tag ${{ secrets.REPOSITORY }}:$LATEST_SHA ${{ secrets.IMAGE_REGISTRY }}:latest
           docker push ${{ secrets.IMAGE_REGISTRY }}:latest
-          kubectl create deployment ${{ secrets.REPOSITORY }} --image=${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA -n default
-          kubectl set image deployment/${{ secrets.REPOSITORY }} ${{ secrets.REPOSITORY }}=${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA -n default
+          # Check if the deployment exists
+          DEPLOYMENT_EXISTS=$(kubectl get deployment ${{ secrets.REPOSITORY }} -n default --ignore-not-found)
+          if [ -z "$DEPLOYMENT_EXISTS" ]; then
+            echo "Deployment does not exist. Creating deployment."
+            kubectl create deployment ${{ secrets.REPOSITORY }} --image=${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA -n default
+          else
+            echo "Deployment exists. Updating deployment."
+            kubectl set image deployment/${{ secrets.REPOSITORY }} ${{ secrets.REPOSITORY }}=${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA -n default
+          fi
