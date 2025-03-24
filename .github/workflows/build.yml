@@ -34,6 +34,7 @@ jobs:
           sudo mv ./kubectl /usr/local/bin/kubectl
           pip install awscli --upgrade
           aws --version
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.IMAGE_REGISTRY }}
           aws eks update-kubeconfig --name my-cluster --region ${{ env.AWS_REGION }}
           LATEST_SHA=$(git rev-parse HEAD)
           docker build -t express-eks:$LATEST_SHA .
