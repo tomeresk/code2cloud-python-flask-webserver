@@ -58,11 +58,17 @@ jobs:
       - name: Build Docker image
         run: |
           LATEST_SHA=$(git rev-parse HEAD)
+          echo "LATEST_SHA: $LATEST_SHA"  # Check the value of LATEST_SHA
+          if [[ -z "$LATEST_SHA" ]]; then
+            echo "Error: LATEST_SHA is empty, aborting."
+            exit 1
+          fi
           docker build -t ${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA .
           docker tag ${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA ${{ secrets.IMAGE_REGISTRY }}:latest
 
       - name: Push Docker image to AWS ECR
         run: |
+          echo "Pushing image to AWS ECR..."
           docker push ${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA
           docker push ${{ secrets.IMAGE_REGISTRY }}:latest
 
