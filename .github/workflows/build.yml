@@ -1,9 +1,9 @@
-name: CI/CD Pipeline
+name: CI/CD
 
 on:
   push:
     branches:
-      - main  # or specify your branch here
+      - main
 
 jobs:
   build-and-test:
@@ -16,89 +16,61 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.8'  # Change the Python version if needed
+          python-version: '3.8'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-  build-and-push-image:
+  deploy_to_production:
     runs-on: ubuntu-latest
     needs: build-and-test
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up AWS Credentials
+      - name: Configure AWS credentials
         run: |
-          echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > aws_access_key_id
-          echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > aws_secret_access_key
           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws configure set region ${{ secrets.AWS_REGION }}  # Ensure AWS_REGION is set as a secret in GitHub
+          aws configure set region ${{ vars.AWS_REGION }}
 
-      - name: Install kubectl and AWS CLI
+      - name: Install AWS CLI & kubectl
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x ./kubectl
           sudo mv ./kubectl /usr/local/bin/kubectl
-          pip install awscli --upgrade
+          pip install --upgrade awscli
           aws --version
 
       - name: Log in to AWS ECR
         run: |
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.IMAGE_REGISTRY }}
+          aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ vars.IMAGE_REGISTRY }}
+
+      - name: Update kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --name eks-code2cloud-test --region ${{ vars.AWS_REGION }}
 
       - name: Build Docker image
         run: |
           LATEST_SHA=$(git rev-parse HEAD)
-          echo "LATEST_SHA: $LATEST_SHA"
-          if [[ -z "$LATEST_SHA" ]]; then
-            echo "Error: LATEST_SHA is empty, aborting."
-            exit 1
-          fi
-          docker build -t ${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA .
-          docker tag ${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA ${{ secrets.IMAGE_REGISTRY }}:latest
+          echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV
+          docker build -t ${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA .
+          docker tag ${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA ${{ vars.IMAGE_REGISTRY }}:latest
 
       - name: Push Docker image to AWS ECR
         run: |
-          echo "Pushing image to AWS ECR..."
-          docker push ${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA
-          docker push ${{ secrets.IMAGE_REGISTRY }}:latest
+          docker push ${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA
+          docker push ${{ vars.IMAGE_REGISTRY }}:latest
 
-  deploy-to-eks:
-    runs-on: ubuntu-latest
-    needs: build-and-push-image
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up AWS Credentials for EKS deployment
+      - name: Deploy to EKS
         run: |
-          echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > aws_access_key_id
-          echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > aws_secret_access_key
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws configure set region ${{ secrets.AWS_REGION }}
-
-      - name: Update kubeconfig for EKS
-        run: |
-          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
-
-      - name: Check if the deployment exists
-        id: deployment
-        run: |
-          DEPLOYMENT_EXISTS=$(kubectl get deployment ${{ secrets.DEPLOYMENT_NAME }} -n default --ignore-not-found)
-          echo "Deployment exists: $DEPLOYMENT_EXISTS"
-          echo "::set-output name=exists::$DEPLOYMENT_EXISTS"
-
-      - name: Create or update deployment in EKS
-        run: |
-          if [[ "${{ steps.deployment.outputs.exists }}" == "null" ]]; then
-            echo "Deployment does not exist. Creating deployment."
-            kubectl create deployment ${{ secrets.DEPLOYMENT_NAME }} --image=${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA -n default
+          if ! kubectl get deployment ${{ vars.DEPLOYMENT_NAME }} -n default &> /dev/null; then
+            echo "Deployment does not exist. Creating..."
+            kubectl create deployment ${{ vars.DEPLOYMENT_NAME }} --image=${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA -n default
           else
-            echo "Deployment exists. Updating deployment."
-            kubectl set image deployment/${{ secrets.DEPLOYMENT_NAME }} ${{ secrets.DEPLOYMENT_NAME }}=${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA -n default
+            echo "Deployment exists. Updating..."
+            kubectl set image deployment/${{ vars.DEPLOYMENT_NAME }} ${{ vars.DEPLOYMENT_NAME }}=${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA -n default
           fi
