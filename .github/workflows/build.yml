@@ -67,10 +67,16 @@ jobs:
 
       - name: Deploy to EKS
         run: |
-          if ! kubectl get deployment ${{ vars.DEPLOYMENT_NAME }} -n default &> /dev/null; then
+          # Check if the deployment exists
+          kubectl get deployment ${{ vars.DEPLOYMENT_NAME }} -n default &> /dev/null
+          if [ $? -ne 0 ]; then
             echo "Deployment does not exist. Creating..."
             kubectl create deployment ${{ vars.DEPLOYMENT_NAME }} --image=${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA -n default
           else
             echo "Deployment exists. Updating..."
             kubectl set image deployment/${{ vars.DEPLOYMENT_NAME }} ${{ vars.DEPLOYMENT_NAME }}=${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA -n default
           fi
+
+      - name: Verify Deployment
+        run: |
+          kubectl rollout status deployment/${{ vars.DEPLOYMENT_NAME }} -n default
