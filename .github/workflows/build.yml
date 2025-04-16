@@ -21,13 +21,13 @@ jobs:
     needs: [build-and-test]
     steps:
       - uses: actions/checkout@v2
-      - name: Configure AWS Credentials
+      - name: Set up AWS Credentials
         run: |
           echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > aws_access_key_id
           echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > aws_secret_access_key
       - name: Set AWS Region
         run: |
-          echo "AWS_REGION=us-east-1" >> $GITHUB_ENV  # Replace with your AWS region
+          echo "AWS_REGION=eu-north-1" >> $GITHUB_ENV  # Update region to eu-north-1
       - name: Deploy to EKS
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -37,8 +37,8 @@ jobs:
           aws --version
           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.IMAGE_REGISTRY }}
-          aws eks update-kubeconfig --name my-cluster --region ${{ env.AWS_REGION }}
+          aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin ${{ secrets.IMAGE_REGISTRY }}
+          aws eks update-kubeconfig --name eks-code2cloud-test --region ${{ env.AWS_REGION }}  # Update cluster name
           LATEST_SHA=$(git rev-parse HEAD)
           docker build -t ${{ secrets.REPOSITORY }}:$LATEST_SHA .
           docker tag ${{ secrets.REPOSITORY }}:$LATEST_SHA ${{ secrets.IMAGE_REGISTRY }}:$LATEST_SHA
