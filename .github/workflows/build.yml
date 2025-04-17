@@ -79,7 +79,7 @@ jobs:
 
       - name: 🔄 Update Kubeconfig for EKS
         run: |
-          aws eks update-kubeconfig --name eks-code2cloud-test --region ${{ vars.AWS_REGION }}
+          aws eks update-kubeconfig --name ${{ vars.EKS_NAME }} --region ${{ vars.AWS_REGION }}
 
       - name: 🔍 Check if Kubernetes Deployment Exists
         id: check-deployment
