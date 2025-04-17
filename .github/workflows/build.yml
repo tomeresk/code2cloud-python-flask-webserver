@@ -26,6 +26,8 @@ jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
     needs: install
+    outputs:
+      latest_sha: ${{ steps.export-sha.outputs.sha }}
 
     steps:
       - name: 📥 Checkout Repository
@@ -63,9 +65,15 @@ jobs:
           docker push ${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA
           docker push ${{ vars.IMAGE_REGISTRY }}:latest
 
+      - name: 📤 Set Output for Latest SHA
+        id: export-sha
+        run: echo "sha=$LATEST_SHA" >> $GITHUB_OUTPUT
+
   deploy-to-eks:
     runs-on: ubuntu-latest
     needs: build-and-push-image
+    env:
+      LATEST_SHA: ${{ needs.build-and-push-image.outputs.latest_sha }}
 
     steps:
       - name: 📥 Checkout Repository
