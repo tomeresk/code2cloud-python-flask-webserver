@@ -63,7 +63,7 @@ jobs:
 
       - name: 🏗️ Cortex CLI scan image
         run: |
-          crtx_resp=$(curl -s "https://api-viso-qiztv9dbyuodlmcssy88st.xdr-qa2-uat.us.paloaltonetworks.com/public_api/v1/unified-cli/releases/download-link?os=darwin&architecture=arm64" -H "x-xdr-auth-id: 2" -H "Authorization: n48lqPkPhrbsMoxJKjTyaTpE55t4RPFDrIZ8278lRb30XhSDfRQxxEwQPdlI1lgQC52IsidO9XsNhpQM0FqKqfeuEAEDkiNuITx5IxLOj4x4J72xuKWO4qDWCrr7n2TM") && crtx_url=$(echo $crtx_resp | jq -r ".signed_url") && crtx_file=$(echo $crtx_resp | jq -r ".file_name") && curl -o $crtx_file $crtx_url
+          crtx_resp=$(curl -s "https://api-viso-qiztv9dbyuodlmcssy88st.xdr-qa2-uat.us.paloaltonetworks.com/public_api/v1/unified-cli/releases/download-link?os=linux&architecture=amd64" -H "x-xdr-auth-id: 2" -H "Authorization: n48lqPkPhrbsMoxJKjTyaTpE55t4RPFDrIZ8278lRb30XhSDfRQxxEwQPdlI1lgQC52IsidO9XsNhpQM0FqKqfeuEAEDkiNuITx5IxLOj4x4J72xuKWO4qDWCrr7n2TM") && crtx_url=$(echo $crtx_resp | jq -r ".signed_url") && crtx_file=$(echo $crtx_resp | jq -r ".file_name") && curl -o $crtx_file $crtx_url
           chmod +x ./cortexcli
           ./cortexcli --api-base-url https://api-viso-qiztv9dbyuodlmcssy88st.xdr-qa2-uat.us.paloaltonetworks.com --api-key ${{ secrets.CORTEX_API_KEY }} --api-key-id 2 --log-level debug image scan image.tar
 
