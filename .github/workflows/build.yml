@@ -59,7 +59,7 @@ jobs:
           echo "LATEST_SHA=$LATEST_SHA" >> $GITHUB_ENV
           docker build -t ${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA .
           docker tag ${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA ${{ vars.IMAGE_REGISTRY }}:latest
-          docker save -o ${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA.tar
+          docker save -o ${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA.tar ${{ vars.IMAGE_REGISTRY }}:$LATEST_SHA
 
       - name: 🏗️ Cortex CLI scan image
         run: |
