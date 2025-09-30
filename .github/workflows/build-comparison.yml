@@ -24,7 +24,7 @@ jobs:
     name: HashiCorp Packer Build
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.run_packer == 'true' }}
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,15 +43,36 @@ jobs:
 
       - name: Get latest Ubuntu AMI
         run: |
+          echo "🔍 Searching for Ubuntu 22.04 AMI..."
+
+          # Try specific search first
           UBUNTU_AMI=$(aws ec2 describe-images \
             --owners 099720109477 \
             --filters \
               "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-22.04-amd64-server-*" \
               "Name=state,Values=available" \
             --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
-            --output text)
-          
-          echo "Found Ubuntu AMI: $UBUNTU_AMI"
+            --output text 2>/dev/null || echo "")
+
+          # If that fails, try broader search
+          if [ "$UBUNTU_AMI" = "" ] || [ "$UBUNTU_AMI" = "None" ]; then
+            echo "⚠️ First search failed, trying broader search..."
+            UBUNTU_AMI=$(aws ec2 describe-images \
+              --owners 099720109477 \
+              --filters \
+                "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-*-amd64-server-*" \
+                "Name=state,Values=available" \
+              --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
+              --output text)
+          fi
+
+          # Fallback to known AMI
+          if [ "$UBUNTU_AMI" = "" ] || [ "$UBUNTU_AMI" = "None" ]; then
+            echo "⚠️ Using hardcoded Ubuntu 22.04 AMI for us-west-2"
+            UBUNTU_AMI="ami-0c2d3e23eb7b0270d"
+          fi
+
+          echo "✅ Using Ubuntu AMI: $UBUNTU_AMI"
           echo "UBUNTU_AMI=$UBUNTU_AMI" >> $GITHUB_ENV
 
       - name: Create Packer template
@@ -72,7 +93,7 @@ jobs:
             region        = "${{ env.AWS_REGION }}"
             source_ami    = "${{ env.UBUNTU_AMI }}"
             ssh_username  = "ubuntu"
-            
+
             tags = {
               Name = "packer-demo-\${timestamp()}"
               Tool = "HashiCorp-Packer"
@@ -81,7 +102,7 @@ jobs:
 
           build {
             sources = ["source.amazon-ebs.ubuntu"]
-            
+
             provisioner "shell" {
               inline = [
                 "sudo apt-get update",
@@ -111,7 +132,7 @@ jobs:
     name: AWS EC2 Image Builder Build
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.run_ec2_imagebuilder == 'true' }}
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,21 +146,53 @@ jobs:
 
       - name: Get latest Ubuntu AMI
         run: |
+          echo "🔍 Searching for Ubuntu 22.04 AMI..."
+
+          # Try multiple search patterns
           UBUNTU_AMI=$(aws ec2 describe-images \
             --owners 099720109477 \
             --filters \
               "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-22.04-amd64-server-*" \
               "Name=state,Values=available" \
             --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
-            --output text)
-          
-          echo "Found Ubuntu AMI: $UBUNTU_AMI"
+            --output text 2>/dev/null || echo "")
+
+          # If that fails, try a broader search
+          if [ "$UBUNTU_AMI" = "" ] || [ "$UBUNTU_AMI" = "None" ]; then
+            echo "⚠️ First search failed, trying broader search..."
+            UBUNTU_AMI=$(aws ec2 describe-images \
+              --owners 099720109477 \
+              --filters \
+                "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-*-amd64-server-*" \
+                "Name=state,Values=available" \
+              --query 'Images | sort_by(@, &CreationDate) | [-1].ImageId' \
+              --output text)
+          fi
+
+          # If still fails, use a known working AMI
+          if [ "$UBUNTU_AMI" = "" ] || [ "$UBUNTU_AMI" = "None" ]; then
+            echo "⚠️ AMI search failed, using hardcoded Ubuntu 22.04 AMI for us-west-2"
+            UBUNTU_AMI="ami-0c2d3e23eb7b0270d"  # Ubuntu 22.04 LTS in us-west-2
+          fi
+
+          echo "✅ Using Ubuntu AMI: $UBUNTU_AMI"
+
+          # Verify the AMI exists
+          aws ec2 describe-images --image-ids $UBUNTU_AMI --query 'Images[0].Name' --output text
+
           echo "UBUNTU_AMI=$UBUNTU_AMI" >> $GITHUB_ENV
 
       - name: Run EC2 Image Builder pipeline
         run: |
           echo "🚀 Starting EC2 Image Builder with AMI: $UBUNTU_AMI"
-          
+
+          # Verify we have a valid AMI
+          if [ "$UBUNTU_AMI" = "" ] || [ "$UBUNTU_AMI" = "None" ]; then
+            echo "❌ No valid AMI found. Exiting."
+            exit 1
+          fi
+
+          # Create component with proper YAML formatting
           cat > component.yml << 'EOF'
           name: InstallNginx
           description: Install Nginx web server
@@ -159,6 +212,10 @@ jobs:
                       - echo '<h1>Built with EC2 Image Builder</h1>' > /var/www/html/index.html
           EOF
 
+          echo "📋 Component YAML:"
+          cat component.yml
+
+          # Create component
           COMPONENT_ARN=$(aws imagebuilder create-component \
             --name "nginx-component-$(date +%s)" \
             --semantic-version "1.0.0" \
@@ -167,9 +224,10 @@ jobs:
             --data file://component.yml \
             --query 'componentBuildVersionArn' \
             --output text)
-          
+
           echo "✅ Component created: $COMPONENT_ARN"
-          
+
+          # Create image recipe
           RECIPE_ARN=$(aws imagebuilder create-image-recipe \
             --name "nginx-recipe-$(date +%s)" \
             --semantic-version "1.0.0" \
@@ -178,27 +236,48 @@ jobs:
             --components componentArn=$COMPONENT_ARN \
             --query 'imageRecipeArn' \
             --output text)
-          
+
           echo "✅ Recipe created: $RECIPE_ARN"
-          
+
+          # Get default VPC info for infrastructure config
+          DEFAULT_VPC=$(aws ec2 describe-vpcs \
+            --filters "Name=is-default,Values=true" \
+            --query 'Vpcs[0].VpcId' \
+            --output text)
+
+          DEFAULT_SUBNET=$(aws ec2 describe-subnets \
+            --filters "Name=vpc-id,Values=$DEFAULT_VPC" \
+            --query 'Subnets[0].SubnetId' \
+            --output text)
+
+          echo "🌐 Using VPC: $DEFAULT_VPC, Subnet: $DEFAULT_SUBNET"
+
+          # Create infrastructure configuration
           INFRA_ARN=$(aws imagebuilder create-infrastructure-configuration \
             --name "basic-infra-$(date +%s)" \
             --instance-types t3.micro \
+            --subnet-id "$DEFAULT_SUBNET" \
             --query 'infrastructureConfigurationArn' \
             --output text)
-          
+
           echo "✅ Infrastructure config created: $INFRA_ARN"
-          
+
+          # Start image build
           IMAGE_ARN=$(aws imagebuilder create-image \
             --image-recipe-arn "$RECIPE_ARN" \
             --infrastructure-configuration-arn "$INFRA_ARN" \
             --query 'imageBuildVersionArn' \
             --output text)
-          
+
           echo "✅ Image build started: $IMAGE_ARN"
+
+          # Create build log
           echo "Build Summary:" > ec2-imagebuilder-build.log
           echo "Base AMI: $UBUNTU_AMI" >> ec2-imagebuilder-build.log
           echo "Image ARN: $IMAGE_ARN" >> ec2-imagebuilder-build.log
+          echo "Recipe ARN: $RECIPE_ARN" >> ec2-imagebuilder-build.log
+          echo "Component ARN: $COMPONENT_ARN" >> ec2-imagebuilder-build.log
+          echo "Infrastructure ARN: $INFRA_ARN" >> ec2-imagebuilder-build.log
 
       - name: Upload EC2 Image Builder logs
         uses: actions/upload-artifact@v4
@@ -211,7 +290,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [packer-build, ec2-imagebuilder-build]
     if: always()
-    
+
     steps:
       - name: Generate comparison report
         run: |
